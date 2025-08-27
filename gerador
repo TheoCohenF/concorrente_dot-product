@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Uso correto: %s <qtd_elementos> <arquivo_destino>\n", argv[0]);
+        return 1;
+    }
+
+    long qtd = atol(argv[1]);
+    char *nome_arquivo = argv[2];
+
+    float *vetA = malloc(qtd * sizeof(float));
+    float *vetB = malloc(qtd * sizeof(float));
+
+    srand(time(NULL));
+    for (long i = 0; i < qtd; i++) {
+        vetA[i] = (float)rand() / RAND_MAX;
+        vetB[i] = (float)rand() / RAND_MAX;
+    }
+
+    // Cálculo sequencial do produto interno
+    double resultado = 0.0;
+    for (long i = 0; i < qtd; i++) {
+        resultado += vetA[i] * vetB[i];
+    }
+
+    // Gravação em arquivo binário
+    FILE *saida = fopen(nome_arquivo, "wb");
+    fwrite(&qtd, sizeof(long), 1, saida);
+    fwrite(vetA, sizeof(float), qtd, saida);
+    fwrite(vetB, sizeof(float), qtd, saida);
+    fwrite(&resultado, sizeof(double), 1, saida);
+    fclose(saida);
+
+    printf("Produto interno calculado = %.6f\n", resultado);
+
+    free(vetA);
+    free(vetB);
+    return 0;
+}
