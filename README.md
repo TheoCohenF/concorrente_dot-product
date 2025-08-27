@@ -1,0 +1,1 @@
+# concorrente_dot-product
