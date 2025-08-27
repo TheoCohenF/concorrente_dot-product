@@ -1,0 +1,83 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <sys/time.h>
+
+typedef struct {
+    float *vet1;
+    float *vet2;
+    long inicio;
+    long fim;
+    double soma_parcial;
+} DadosThread;
+
+void *calculo_thread(void *arg) {
+    DadosThread *info = (DadosThread*) arg;
+    double acumulador = 0.0;
+    for (long i = info->inicio; i < info->fim; i++) {
+        acumulador += info->vet1[i] * info->vet2[i];
+    }
+    info->soma_parcial = acumulador;
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Uso correto: %s <qtd_threads> <arquivo_dados>\n", argv[0]);
+        return 1;
+    }
+
+    int num_threads = atoi(argv[1]);
+    char *nome_arquivo = argv[2];
+
+    // Leitura do arquivo binário
+    long tamanho;
+    double resultado_seq;
+    FILE *arq = fopen(nome_arquivo, "rb");
+    fread(&tamanho, sizeof(long), 1, arq);
+
+    float *vet1 = malloc(tamanho * sizeof(float));
+    float *vet2 = malloc(tamanho * sizeof(float));
+    fread(vet1, sizeof(float), tamanho, arq);
+    fread(vet2, sizeof(float), tamanho, arq);
+    fread(&resultado_seq, sizeof(double), 1, arq);
+    fclose(arq);
+
+    // Criação das threads
+    pthread_t threads[num_threads];
+    DadosThread infos[num_threads];
+
+    long bloco = tamanho / num_threads;
+    struct timeval t_inicio, t_fim;
+    gettimeofday(&t_inicio, NULL);
+
+    for (int i = 0; i < num_threads; i++) {
+        infos[i].vet1 = vet1;
+        infos[i].vet2 = vet2;
+        infos[i].inicio = i * bloco;
+        infos[i].fim = (i == num_threads - 1) ? tamanho : (i+1) * bloco;
+        infos[i].soma_parcial = 0.0;
+        pthread_create(&threads[i], NULL, calculo_thread, &infos[i]);
+    }
+
+    double resultado_conc = 0.0;
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+        resultado_conc += infos[i].soma_parcial;
+    }
+
+    gettimeofday(&t_fim, NULL);
+    double tempo_exec = (t_fim.tv_sec - t_inicio.tv_sec) + 
+                        (t_fim.tv_usec - t_inicio.tv_usec)/1e6;
+
+    double erro_relativo = (resultado_seq - resultado_conc) / resultado_seq;
+
+    printf("Produto interno (referência) = %.6f\n", resultado_seq);
+    printf("Produto interno (paralelo)   = %.6f\n", resultado_conc);
+    printf("Erro relativo                = %.6e\n", erro_relativo);
+    printf("Tempo de execução paralela   = %.6f segundos\n", tempo_exec);
+
+    free(vet1);
+    free(vet2);
+    return 0;
+}
